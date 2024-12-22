@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive DFS Visualization</title>
+    <style>
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: #2d3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            width: 100%;
+            font-size: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            width: 90%;
+            max-width: 1200px;
+            margin-top: 20px;
+        }
+
+        #graph-container {
+            width: 60%;
+            height: 600px;
+            position: relative;
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        #controls {
+            width: 40%;
+            padding: 20px;
+            background-color: #2d3e50;
+            border-radius: 10px;
+            margin-left: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        input, button {
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background-color: #4a5d73;
+            color: #ffffff;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+
+        input {
+            background-color: #3a4f68;
+        }
+
+        button {
+            background-color: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #priority-queue {
+            background-color: #3b4b63; 
+            padding: 20px;
+            border-radius: 10px;
+            width: 60%;  
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+
+        #queueList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        #queueList li {
+            background-color: #3a4f68;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            color: #fff;
+        }
+
+        #queueList li:hover {
+            background-color: #5a6f8b;
+        }
+
+        #goalPath {
+            margin-top: 20px;
+            background-color: #3b4b63;
+            padding: 20px;
+            border-radius: 10px;
+            width: 60%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #goalPath h3 {
+            font-size: 1.2rem;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        #goalPath ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #goalPath li {
+            background-color: #4a5d73;
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        Interactive DFS Visualization
+    </header>
+    <main>
+        <div id="graph-container">
+            <canvas id="graphCanvas" width="600" height="800"></canvas>
+        </div>
+        <div id="controls">
+            <h2>Graph Editor</h2>
+            <form id="addEdgeForm">
+                <label for="fromNode">From Node:</label><input type="text" id="fromNode" required>
+                <label for="toNode">To Node:</label><input type="text" id="toNode" required>
+                <button type="submit">Add Edge</button>
+            </form>
+            <button id="startButton">Start DFS</button>
+            <button id="resetButton">Reset</button>
+
+            <div id="priority-queue">
+                <h2>DFS Stack</h2>
+                <ul id="queueList"></ul>
+            </div>
+
+            <div id="goalPath">
+                <h3>Goal Path</h3>
+                <ul id="goalList"></ul>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const graph = {}, canvas = document.getElementById('graphCanvas'), ctx = canvas.getContext('2d');
+        const queueList = document.getElementById('queueList'), addEdgeForm = document.getElementById('addEdgeForm');
+        const startButton = document.getElementById('startButton'), resetButton = document.getElementById('resetButton');
+        const goalList = document.getElementById('goalList'); // Goal path list
+        let steps = [], stepIndex = 0, interval = null, positions = {}, goalPath = [];
+
+        function addEdge(from, to) {
+            if (!graph[from]) graph[from] = [];
+            if (!positions[from]) positions[from] = randomPosition();
+            if (!positions[to]) positions[to] = randomPosition();
+            graph[from].push(to);
+            drawGraph();
+        }
+
+        function randomPosition() { return { x: Math.random() * 500 + 50, y: Math.random() * 500 + 50 }; }
+
+        function drawGraph(currentNode = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (const from in graph) {
+                for (const to of graph[from]) {
+                    const start = positions[from], end = positions[to];
+                    ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y);
+                    ctx.strokeStyle = '#ccc'; ctx.lineWidth = 2; ctx.stroke(); ctx.closePath();
+                }
+            }
+            for (const node in positions) {
+                const { x, y } = positions[node];
+                ctx.beginPath();
+                ctx.arc(x, y, 30, 0, 2 * Math.PI); 
+                ctx.fillStyle = currentNode === node ? 'yellow' : '#fff'; 
+                ctx.fill();
+                ctx.strokeStyle = 'black'; ctx.lineWidth = 2; ctx.stroke(); ctx.closePath();
+
+                ctx.font = '11px Arial'; 
+                ctx.fillStyle = 'black';
+                const textWidth = ctx.measureText(node).width;
+                const textX = x - textWidth / 2; 
+                const textY = y + 4; 
+                ctx.fillText(node, textX, textY);
+            }
+        }
+
+        function depthFirstSearch(start, goal) {
+            const visited = new Set(), stack = [{ node: start, path: [start] }];
+            steps = []; 
+            goalPath = []; 
+
+            while (stack.length > 0) {
+                const current = stack.pop();  
+                steps.push(current);
+                if (visited.has(current.node)) continue; 
+                visited.add(current.node);
+
+                if (current.node === goal) {
+                    goalPath = current.path; 
+                    break;
+                }
+
+                for (const neighbor of graph[current.node] || []) {
+                    stack.push({ node: neighbor, path: [...current.path, neighbor] });
+                }
+                steps.push({ stack: [...stack] }); 
+            }
+        }
+
+        function updateStackUI(stack) {
+            queueList.innerHTML = ''; 
+            stack.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item.node; 
+                queueList.appendChild(li);
+            });
+        }
+
+        function updateGoalPathUI() {
+            goalList.innerHTML = ''; 
+            goalPath.forEach(node => {
+                const li = document.createElement('li');
+                li.textContent = node; 
+                goalList.appendChild(li);
+            });
+        }
+
+        function visualizeStep() {
+            if (stepIndex < steps.length) {
+                const step = steps[stepIndex];
+                if (step.node) drawGraph(step.node); 
+                if (step.stack) updateStackUI(step.stack); 
+                stepIndex++;
+            } else {
+                clearInterval(interval);  
+                updateGoalPathUI();  
+            }
+        }
+
+        function reset() {
+            steps = []; stepIndex = 0;
+            Object.keys(graph).forEach(key => delete graph[key]);
+            Object.keys(positions).forEach(key => delete positions[key]);
+            queueList.innerHTML = '';  
+            goalList.innerHTML = '';  
+            drawGraph();  
+        }
+
+        addEdgeForm.addEventListener('submit', event => {
+            event.preventDefault();
+            const from = document.getElementById('fromNode').value.toUpperCase();
+            const to = document.getElementById('toNode').value.toUpperCase();
+            addEdge(from, to); addEdgeForm.reset();
+        });
+
+        startButton.addEventListener('click', () => {
+            const startNode = prompt('Enter start node:').toUpperCase();
+            const goalNode = prompt('Enter goal node:').toUpperCase();
+            depthFirstSearch(startNode, goalNode);
+            stepIndex = 0; interval = setInterval(visualizeStep, 1000);
+        });
+
+        resetButton.addEventListener('click', reset);
+    </script>
+</body>
+</html>
